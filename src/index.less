@@ -1,0 +1,21 @@
+.codemirror-editor {
+  @radius: 3px;
+  @borderColor: rgba(122, 122, 122, .25);
+  border-radius: @radius;
+  overflow: hidden;
+  border: 1px solid @borderColor;
+  .CodeMirror {
+    box-shadow: 0 0 5px @borderColor inset;
+    height: auto;
+    font-family: Monaco, Menlo, Consolas, 'COURIER NEW', monospace;
+    font-size: 12px;
+    .CodeMirror-scroll {
+      overflow: auto;
+      min-height: 100px;
+    }
+    .CodeMirror-gutters {
+      background: rgba(0, 0, 0, 0);
+      border-right: 1px dotted @borderColor;
+    }
+  }
+}

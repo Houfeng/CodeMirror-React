@@ -1,0 +1,37 @@
+init:
+  - name: pkginfo
+
+dev:
+  - name: clean
+  - name: webpack
+    entry: ./src/debug.js
+    template: ./assets/*.html
+    watch: true
+  - name: server
+  - name: browser-sync
+
+build:
+  - name: clean
+  - name: webpack
+    entry: ./src/index.js
+    folders:
+      js: ./
+      css: ./
+    common:
+      disabled: true
+    umd:
+      library: 'CMEditor'
+      libraryTarget: 'umd'
+      umdNamedDefine: true
+  - name: ./build.js
+    
+test:
+  - name: lint
+  - name: unit
+
+publish:
+  - name: shell
+    script:
+      - dn test
+      - dn build
+      - npm pu
