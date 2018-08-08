@@ -41,5 +41,8 @@ export class CodeMirror extends React.Component {
 
 }
 
-export { CodeMirror as CodeMirrorEditor, CodeMirror as Editor };
+export {
+  CodeMirror as CodeMirrorEditor,
+  CodeMirror as Editor
+};
 export default CodeMirror;
