@@ -23,6 +23,7 @@ build:
       library: 'CMEditor'
       libraryTarget: 'umd'
       umdNamedDefine: true
+    library: true
   - name: ./build.js
     
 test:
