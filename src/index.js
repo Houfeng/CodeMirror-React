@@ -22,7 +22,7 @@ export class CodeMirror extends React.Component {
 
   componentDidMount() {
     const {
-      defaultValue = '', value = defaultValue,
+      defaultValue = this.value, value = defaultValue,
       mode = 'javascript', theme = 'duotone-light',
       tabSize = 2, lineNumbers = true, ...others
     } = this.props;
@@ -32,10 +32,20 @@ export class CodeMirror extends React.Component {
     this.bindEvents();
   }
 
+  componentDidUpdate() {
+    const { value } = this.props;
+    if (value === this.value) return;
+    console.log(value, this.value);
+    this.editor.setValue(value);
+  }
+
   bindEvents = () => {
     if (!this.editor) return;
     const { onChange = noop, onReady = noop } = this.props;
-    this.editor.on('change', () => onChange(this.editor.getValue()));
+    this.editor.on('change', () => {
+      this.value = this.editor.getValue();
+      onChange(this.value);
+    });
     onReady(this.editor, this);
   }
 
