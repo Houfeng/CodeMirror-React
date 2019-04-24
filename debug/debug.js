@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
-import CodeMirror from './';
+import CodeMirror from '../src';
 
 class App extends React.Component {
 
@@ -18,10 +18,6 @@ class App extends React.Component {
     return <div>
       <CodeMirror
         value={this.state.value}
-        mode='javascript'
-        theme='duotone-light'
-        tabSize={2}
-        lineNumbers={true}
         onChange={this.onChange}
       />
       <button onClick={this.setValue}>设置内容</button>

@@ -3,8 +3,9 @@ init:
 
 dev:
   - name: clean
+  - name: typescript
   - name: webpack
-    entry: ./src/debug.js
+    entry: ./debug/*.js
     template: ./assets/*.html
     watch: true
   - name: server
@@ -12,11 +13,9 @@ dev:
 
 build:
   - name: clean
+  - name: typescript
   - name: webpack
-    entry: ./src/index.js
-    folders:
-      js: ./
-      css: ./
+    compress: false
     common:
       disabled: true
     umd:
@@ -24,11 +23,9 @@ build:
       libraryTarget: 'umd'
       umdNamedDefine: true
     library: true
-  - name: ./build.js
     
 test:
-  - name: lint
-  - name: unit
+  - name: tslint
 
 publish:
   - name: shell
