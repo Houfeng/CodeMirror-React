@@ -59,7 +59,6 @@ export class CodeMirror extends React.Component<ICodeMirrorPorps> {
   componentDidUpdate() {
     const { value } = this.props;
     if (value === this.value) return;
-    console.log(value, this.value);
     this.editor.setValue(value);
   }
 

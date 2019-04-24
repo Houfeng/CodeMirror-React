@@ -18362,7 +18362,6 @@ var CodeMirror = /** @class */ (function (_super) {
         var value = this.props.value;
         if (value === this.value)
             return;
-        console.log(value, this.value);
         this.editor.setValue(value);
     };
     return CodeMirror;
