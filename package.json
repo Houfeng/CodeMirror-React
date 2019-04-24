@@ -14,8 +14,6 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@ali/dn-middleware-query": "^1.2.9",
-    "@ali/dn-middleware-stats": "^1.0.9",
     "@types/node": "^11.13.7",
     "@types/react": "^16.8.14",
     "@types/react-dom": "^16.8.4",
