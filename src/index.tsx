@@ -3,7 +3,7 @@ import * as CMEditor from "codemirror";
 import "codemirror/lib/codemirror.css";
 import "./index.less";
 
-const noop = () => { };
+const noop = () => {};
 const requireAll = req => req.keys().map(req);
 const modeReq = require.context("codemirror/mode", true, /\.js$/);
 const themeReq = require.context("codemirror/theme", true, /\.css$/);
@@ -53,6 +53,7 @@ export class CodeMirror extends React.Component<ICodeMirrorPorps> {
       lineNumbers
     });
     this.bindEvents();
+    setTimeout(() => this.editor.refresh(), 0);
   }
 
   componentDidUpdate() {
