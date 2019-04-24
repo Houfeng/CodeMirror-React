@@ -7,7 +7,7 @@ export interface ICodeMirrorPorps {
     value?: string;
     mode?: string;
     theme?: string;
-    tabSize?: string;
+    tabSize?: number;
     lineNumbers?: boolean;
     readOnly?: boolean;
     onReady?: (originEditor: CMEditor, editor?: CodeMirror) => void;

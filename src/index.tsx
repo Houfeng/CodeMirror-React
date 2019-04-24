@@ -3,7 +3,7 @@ import * as CMEditor from "codemirror";
 import "codemirror/lib/codemirror.css";
 import "./index.less";
 
-const noop = () => {};
+const noop = () => { };
 const requireAll = req => req.keys().map(req);
 const modeReq = require.context("codemirror/mode", true, /\.js$/);
 const themeReq = require.context("codemirror/theme", true, /\.css$/);
@@ -15,7 +15,7 @@ export interface ICodeMirrorPorps {
   value?: string;
   mode?: string;
   theme?: string;
-  tabSize?: string;
+  tabSize?: number;
   lineNumbers?: boolean;
   readOnly?: boolean;
   onReady?: (originEditor: CMEditor, editor?: CodeMirror) => void;
