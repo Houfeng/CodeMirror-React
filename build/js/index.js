@@ -18331,6 +18331,7 @@ var CodeMirror = /** @class */ (function (_super) {
     __extends(CodeMirror, _super);
     function CodeMirror() {
         var _this = _super !== null && _super.apply(this, arguments) || this;
+        _this.value = "";
         _this.setElement = function (ref) { return (_this.element = ref); };
         _this.bindEvents = function () {
             if (!_this.editor)
@@ -18350,8 +18351,7 @@ var CodeMirror = /** @class */ (function (_super) {
     CodeMirror.prototype.componentDidMount = function () {
         var _this = this;
         var _a = this.props, _b = _a.defaultValue, defaultValue = _b === void 0 ? this.value : _b, _c = _a.value, value = _c === void 0 ? defaultValue : _c, _d = _a.mode, mode = _d === void 0 ? "javascript" : _d, _e = _a.theme, theme = _e === void 0 ? "elegant" : _e, _f = _a.tabSize, tabSize = _f === void 0 ? 2 : _f, _g = _a.lineNumbers, lineNumbers = _g === void 0 ? true : _g, others = __rest(_a, ["defaultValue", "value", "mode", "theme", "tabSize", "lineNumbers"]);
-        this.editor = new CMEditor(this.element, __assign({}, others, { value: value,
-            mode: mode,
+        this.editor = new CMEditor(this.element, __assign({}, others, { value: value || "", mode: mode,
             theme: theme,
             tabSize: tabSize,
             lineNumbers: lineNumbers }));

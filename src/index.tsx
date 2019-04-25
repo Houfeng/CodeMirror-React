@@ -29,7 +29,7 @@ export class CodeMirror extends React.Component<ICodeMirrorPorps> {
   }
 
   private element: HTMLElement;
-  private value: string;
+  private value = "";
   private editor: CMEditor;
 
   private setElement = ref => (this.element = ref);
@@ -46,7 +46,7 @@ export class CodeMirror extends React.Component<ICodeMirrorPorps> {
     } = this.props;
     this.editor = new CMEditor(this.element, {
       ...others,
-      value,
+      value: value || "",
       mode,
       theme,
       tabSize,

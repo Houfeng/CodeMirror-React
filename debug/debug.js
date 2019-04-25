@@ -4,7 +4,7 @@ import CodeMirror from '../src';
 
 class App extends React.Component {
 
-  state = { value: '//demo' }
+  state = { value: null }
 
   setValue = () => {
     this.setState({ value: '//test' });
