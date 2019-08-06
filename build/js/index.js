@@ -5226,8 +5226,15 @@ return /******/ (function(modules) { // webpackBootstrap
     var line = getLine(doc, pos.line);
     if (line.markedSpans) { for (var i = 0; i < line.markedSpans.length; ++i) {
       var sp = line.markedSpans[i], m = sp.marker;
-      if ((sp.from == null || (m.inclusiveLeft ? sp.from <= pos.ch : sp.from < pos.ch)) &&
-          (sp.to == null || (m.inclusiveRight ? sp.to >= pos.ch : sp.to > pos.ch))) {
+
+      // Determine if we should prevent the cursor being placed to the left/right of an atomic marker
+      // Historically this was determined using the inclusiveLeft/Right option, but the new way to control it
+      // is with selectLeft/Right
+      var preventCursorLeft = ("selectLeft" in m) ? !m.selectLeft : m.inclusiveLeft;
+      var preventCursorRight = ("selectRight" in m) ? !m.selectRight : m.inclusiveRight;
+
+      if ((sp.from == null || (preventCursorLeft ? sp.from <= pos.ch : sp.from < pos.ch)) &&
+          (sp.to == null || (preventCursorRight ? sp.to >= pos.ch : sp.to > pos.ch))) {
         if (mayClear) {
           signal(m, "beforeCursorEnter");
           if (m.explicitlyCleared) {
@@ -5239,14 +5246,14 @@ return /******/ (function(modules) { // webpackBootstrap
 
         if (oldPos) {
           var near = m.find(dir < 0 ? 1 : -1), diff = (void 0);
-          if (dir < 0 ? m.inclusiveRight : m.inclusiveLeft)
+          if (dir < 0 ? preventCursorRight : preventCursorLeft)
             { near = movePos(doc, near, -dir, near && near.line == pos.line ? line : null); }
           if (near && near.line == pos.line && (diff = cmp(near, oldPos)) && (dir < 0 ? diff < 0 : diff > 0))
             { return skipAtomicInner(doc, near, pos, dir, mayClear) }
         }
 
         var far = m.find(dir < 0 ? -1 : 1);
-        if (dir < 0 ? m.inclusiveLeft : m.inclusiveRight)
+        if (dir < 0 ? preventCursorLeft : preventCursorRight)
           { far = movePos(doc, far, dir, far.line == pos.line ? line : null); }
         return far ? skipAtomicInner(doc, far, pos, dir, mayClear) : null
       }
@@ -7779,7 +7786,7 @@ return /******/ (function(modules) { // webpackBootstrap
       for (var i = newBreaks.length - 1; i >= 0; i--)
         { replaceRange(cm.doc, val, newBreaks[i], Pos(newBreaks[i].line, newBreaks[i].ch + val.length)); }
     });
-    option("specialChars", /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b-\u200f\u2028\u2029\ufeff]/g, function (cm, val, old) {
+    option("specialChars", /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u200b-\u200f\u2028\u2029\ufeff\ufff9-\ufffc]/g, function (cm, val, old) {
       cm.state.specialChars = new RegExp(val.source + (val.test("\t") ? "" : "|\t"), "g");
       if (old != Init) { cm.refresh(); }
     });
@@ -9827,7 +9834,7 @@ return /******/ (function(modules) { // webpackBootstrap
 
   addLegacyProps(CodeMirror);
 
-  CodeMirror.version = "5.46.0";
+  CodeMirror.version = "5.48.2";
 
   return CodeMirror;
 
@@ -10065,7 +10072,7 @@ CodeMirror.defineMode("javascript", function(config, parserConfig) {
     if (ch == '"' || ch == "'") {
       state.tokenize = tokenString(ch);
       return state.tokenize(stream, state);
-    } else if (ch == "." && stream.match(/^\d+(?:[eE][+\-]?\d+)?/)) {
+    } else if (ch == "." && stream.match(/^\d[\d_]*(?:[eE][+\-]?[\d_]+)?/)) {
       return ret("number", "number");
     } else if (ch == "." && stream.match("..")) {
       return ret("spread", "meta");
@@ -10073,10 +10080,10 @@ CodeMirror.defineMode("javascript", function(config, parserConfig) {
       return ret(ch);
     } else if (ch == "=" && stream.eat(">")) {
       return ret("=>", "operator");
-    } else if (ch == "0" && stream.match(/^(?:x[\da-f]+|o[0-7]+|b[01]+)n?/i)) {
+    } else if (ch == "0" && stream.match(/^(?:x[\dA-Fa-f_]+|o[0-7_]+|b[01_]+)n?/)) {
       return ret("number", "number");
     } else if (/\d/.test(ch)) {
-      stream.match(/^\d*(?:n|(?:\.\d*)?(?:[eE][+\-]?\d+)?)?/);
+      stream.match(/^[\d_]*(?:n|(?:\.[\d_]*)?(?:[eE][+\-]?[\d_]+)?)?/);
       return ret("number", "number");
     } else if (ch == "/") {
       if (stream.eat("*")) {
@@ -10193,8 +10200,12 @@ CodeMirror.defineMode("javascript", function(config, parserConfig) {
         ++depth;
       } else if (wordRE.test(ch)) {
         sawSomething = true;
-      } else if (/["'\/]/.test(ch)) {
-        return;
+      } else if (/["'\/`]/.test(ch)) {
+        for (;; --pos) {
+          if (pos == 0) return
+          var next = stream.string.charAt(pos - 1)
+          if (next == ch && stream.string.charAt(pos - 2) != "\\") { pos--; break }
+        }
       } else if (sawSomething && !depth) {
         ++pos;
         break;
@@ -10572,9 +10583,12 @@ CodeMirror.defineMode("javascript", function(config, parserConfig) {
   }
   function maybetype(type, value) {
     if (isTS) {
-      if (type == ":" || value == "in") return cont(typeexpr);
+      if (type == ":") return cont(typeexpr);
       if (value == "?") return cont(maybetype);
     }
+  }
+  function maybetypeOrIn(type, value) {
+    if (isTS && (type == ":" || value == "in")) return cont(typeexpr)
   }
   function mayberettype(type) {
     if (isTS && type == ":") {
@@ -10616,7 +10630,7 @@ CodeMirror.defineMode("javascript", function(config, parserConfig) {
     } else if (type == ":") {
       return cont(typeexpr)
     } else if (type == "[") {
-      return cont(expect("variable"), maybetype, expect("]"), typeprop)
+      return cont(expect("variable"), maybetypeOrIn, expect("]"), typeprop)
     } else if (type == "(") {
       return pass(functiondecl, typeprop)
     }
@@ -12954,7 +12968,7 @@ CodeMirror.defineMode("clike", function(config, parserConfig) {
   def("text/x-java", {
     name: "clike",
     keywords: words("abstract assert break case catch class const continue default " +
-                    "do else enum extends final finally float for goto if implements import " +
+                    "do else enum extends final finally for goto if implements import " +
                     "instanceof interface native new package private protected public " +
                     "return static strictfp super switch synchronized this throw throws transient " +
                     "try volatile while @interface"),
@@ -13405,7 +13419,8 @@ CodeMirror.defineMode("ruby", function(config) {
   var indentWords = wordObj(["def", "class", "case", "for", "while", "until", "module", "then",
                              "catch", "loop", "proc", "begin"]);
   var dedentWords = wordObj(["end", "until"]);
-  var matching = {"[": "]", "{": "}", "(": ")"};
+  var opening = {"[": "]", "{": "}", "(": ")"};
+  var closing = {"]": "[", "}": "{", ")": "("};
   var curPunc;
 
   function chain(newtok, stream, state) {
@@ -13435,12 +13450,12 @@ CodeMirror.defineMode("ruby", function(config) {
       else if (stream.eat(/[wxq]/)) { style = "string"; embed = false; }
       var delim = stream.eat(/[^\w\s=]/);
       if (!delim) return "operator";
-      if (matching.propertyIsEnumerable(delim)) delim = matching[delim];
+      if (opening.propertyIsEnumerable(delim)) delim = opening[delim];
       return chain(readQuoted(delim, style, embed, true), stream, state);
     } else if (ch == "#") {
       stream.skipToEnd();
       return "comment";
-    } else if (ch == "<" && (m = stream.match(/^<(-)?[\`\"\']?([a-zA-Z_?]\w*)[\`\"\']?(?:;|$)/))) {
+    } else if (ch == "<" && (m = stream.match(/^<([-~])[\`\"\']?([a-zA-Z_?]\w*)[\`\"\']?(?:;|$)/))) {
       return chain(readHereDoc(m[2], m[1]), stream, state);
     } else if (ch == "0") {
       if (stream.eat("x")) stream.eatWhile(/[\da-fA-F]/);
@@ -13657,9 +13672,9 @@ CodeMirror.defineMode("ruby", function(config) {
       if (state.tokenize[state.tokenize.length-1] != tokenBase) return CodeMirror.Pass;
       var firstChar = textAfter && textAfter.charAt(0);
       var ct = state.context;
-      var closing = ct.type == matching[firstChar] ||
+      var closed = ct.type == closing[firstChar] ||
         ct.type == "keyword" && /^(?:end|until|else|elsif|when|rescue)\b/.test(textAfter);
-      return ct.indented + (closing ? 0 : config.indentUnit) +
+      return ct.indented + (closed ? 0 : config.indentUnit) +
         (state.continuedLine ? config.indentUnit : 0);
     },
 
@@ -15092,7 +15107,7 @@ CodeMirror.defineMIME("text/x-markdown", "markdown");
     {name: "C", mime: "text/x-csrc", mode: "clike", ext: ["c", "h", "ino"]},
     {name: "C++", mime: "text/x-c++src", mode: "clike", ext: ["cpp", "c++", "cc", "cxx", "hpp", "h++", "hh", "hxx"], alias: ["cpp"]},
     {name: "Cobol", mime: "text/x-cobol", mode: "cobol", ext: ["cob", "cpy"]},
-    {name: "C#", mime: "text/x-csharp", mode: "clike", ext: ["cs"], alias: ["csharp"]},
+    {name: "C#", mime: "text/x-csharp", mode: "clike", ext: ["cs"], alias: ["csharp", "cs"]},
     {name: "Clojure", mime: "text/x-clojure", mode: "clojure", ext: ["clj", "cljc", "cljx"]},
     {name: "ClojureScript", mime: "text/x-clojurescript", mode: "clojure", ext: ["cljs"]},
     {name: "Closure Stylesheets (GSS)", mime: "text/x-gss", mode: "css", ext: ["gss"]},
@@ -15177,6 +15192,7 @@ CodeMirror.defineMIME("text/x-markdown", "markdown");
     {name: "Pig", mime: "text/x-pig", mode: "pig", ext: ["pig"]},
     {name: "Plain Text", mime: "text/plain", mode: "null", ext: ["txt", "text", "conf", "def", "list", "log"]},
     {name: "PLSQL", mime: "text/x-plsql", mode: "sql", ext: ["pls"]},
+    {name: "PostgreSQL", mime: "text/x-pgsql", mode: "sql"},
     {name: "PowerShell", mime: "application/x-powershell", mode: "powershell", ext: ["ps1", "psd1", "psm1"]},
     {name: "Properties files", mime: "text/x-properties", mode: "properties", ext: ["properties", "ini", "in"], alias: ["ini", "properties"]},
     {name: "ProtoBuf", mime: "text/x-protobuf", mode: "protobuf", ext: ["proto"]},
@@ -16282,7 +16298,7 @@ CodeMirror.defineMIME('text/x-jade', 'pug');
     var delimiters = parserConf.delimiters || parserConf.singleDelimiters || /^[\(\)\[\]\{\}@,:`=;\.\\]/;
     //               (Backwards-compatiblity with old, cumbersome config system)
     var operators = [parserConf.singleOperators, parserConf.doubleOperators, parserConf.doubleDelimiters, parserConf.tripleDelimiters,
-                     parserConf.operators || /^([-+*/%\/&|^]=?|[<>=]+|\/\/=?|\*\*=?|!=|[~!@])/]
+                     parserConf.operators || /^([-+*/%\/&|^]=?|[<>=]+|\/\/=?|\*\*=?|!=|[~!@]|\.\.\.)/]
     for (var i = 0; i < operators.length; i++) if (!operators[i]) operators.splice(i--, 1)
 
     var hangingIndent = parserConf.hangingIndent || conf.indentUnit;
@@ -18312,8 +18328,10 @@ var __rest = (this && this.__rest) || function (s, e) {
     for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
         t[p] = s[p];
     if (s != null && typeof Object.getOwnPropertySymbols === "function")
-        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) if (e.indexOf(p[i]) < 0)
-            t[p[i]] = s[p[i]];
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
     return t;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -18362,7 +18380,7 @@ var CodeMirror = /** @class */ (function (_super) {
         var value = this.props.value;
         if (value === this.value)
             return;
-        this.editor.setValue(value);
+        this.editor.setValue(value || "");
     };
     return CodeMirror;
 }(React.Component));
@@ -19468,7 +19486,7 @@ CodeMirror.defineMode("clojure", function (options) {
   var qualifiedSymbol = /^(?:(?:[^\\\/\[\]\d\s"#'(),;@^`{}~][^\\\[\]\s"(),;@^`{}~]*(?:\.[^\\\/\[\]\d\s"#'(),;@^`{}~][^\\\[\]\s"(),;@^`{}~]*)*\/)?(?:\/|[^\\\/\[\]\d\s"#'(),;@^`{}~][^\\\[\]\s"(),;@^`{}~]*)*(?=[\\\[\]\s"(),;@^`{}~]|$))/;
 
   function base(stream, state) {
-    if (stream.eatSpace()) return ["space", null];
+    if (stream.eatSpace() || stream.eat(",")) return ["space", null];
     if (stream.match(numberLiteral)) return [null, "number"];
     if (stream.match(characterLiteral)) return [null, "string-2"];
     if (stream.eat(/^"/)) return (state.tokenize = inString)(stream, state);
@@ -25368,7 +25386,10 @@ CodeMirror.defineMode("groovy", function(config) {
 
     electricChars: "{}",
     closeBrackets: {triples: "'\""},
-    fold: "brace"
+    fold: "brace",
+    blockCommentStart: "/*",
+    blockCommentEnd: "*/",
+    lineComment: "//"
   };
 });
 
@@ -35572,9 +35593,43 @@ CodeMirror.defineMIME("text/x-solr", "solr");
 })(function(CodeMirror) {
   "use strict";
 
-  var indentingTags = ["template", "literal", "msg", "fallbackmsg", "let", "if", "elseif",
-                       "else", "switch", "case", "default", "foreach", "ifempty", "for",
-                       "call", "param", "deltemplate", "delcall", "log", "element"];
+  var paramData = { noEndTag: true, soyState: "param-def" };
+  var tags = {
+    "alias": { noEndTag: true },
+    "delpackage": { noEndTag: true },
+    "namespace": { noEndTag: true, soyState: "namespace-def" },
+    "@param": paramData,
+    "@param?": paramData,
+    "@inject": paramData,
+    "@inject?": paramData,
+    "@state": paramData,
+    "@state?": paramData,
+    "template": { soyState: "templ-def", variableScope: true},
+    "literal": { },
+    "msg": {},
+    "fallbackmsg": { noEndTag: true, reduceIndent: true},
+    "let": { soyState: "var-def" },
+    "if": {},
+    "elseif": { noEndTag: true, reduceIndent: true},
+    "else": { noEndTag: true, reduceIndent: true},
+    "switch": {},
+    "case": { noEndTag: true, reduceIndent: true},
+    "default": { noEndTag: true, reduceIndent: true},
+    "foreach": { variableScope: true, soyState: "var-def" },
+    "ifempty": { noEndTag: true, reduceIndent: true},
+    "for": { variableScope: true, soyState: "var-def" },
+    "call": { soyState: "templ-ref" },
+    "param": { soyState: "param-ref"},
+    "print": { noEndTag: true },
+    "deltemplate": { soyState: "templ-def", variableScope: true},
+    "delcall": { soyState: "templ-ref" },
+    "log": {},
+    "element": { variableScope: true },
+  };
+
+  var indentingTags = Object.keys(tags).filter(function(tag) {
+    return !tags[tag].noEndTag || tags[tag].reduceIndent;
+  });
 
   CodeMirror.defineMode("soy", function(config) {
     var textMode = CodeMirror.getMode(config, "text/plain");
@@ -35629,30 +35684,38 @@ CodeMirror.defineMIME("text/x-solr", "solr");
       };
     }
 
+    function popcontext(state) {
+      if (!state.context) return;
+      if (state.context.scope) {
+        state.variables = state.context.scope;
+      }
+      state.context = state.context.previousContext;
+    }
+
     // Reference a variable `name` in `list`.
     // Let `loose` be truthy to ignore missing identifiers.
     function ref(list, name, loose) {
       return contains(list, name) ? "variable-2" : (loose ? "variable" : "variable-2 error");
     }
 
-    function popscope(state) {
-      if (state.scopes) {
-        state.variables = state.scopes.element;
-        state.scopes = state.scopes.next;
-      }
+    // Data for an open soy tag.
+    function Context(previousContext, tag, scope) {
+      this.previousContext = previousContext;
+      this.tag = tag;
+      this.kind = null;
+      this.scope = scope;
     }
 
     return {
       startState: function() {
         return {
-          kind: [],
-          kindTag: [],
           soyState: [],
           templates: null,
           variables: prepend(null, 'ij'),
           scopes: null,
           indent: 0,
           quoteKind: null,
+          context: null,
           localStates: [{
             mode: modes.html,
             state: CodeMirror.startState(modes.html)
@@ -35663,12 +35726,10 @@ CodeMirror.defineMIME("text/x-solr", "solr");
       copyState: function(state) {
         return {
           tag: state.tag, // Last seen Soy tag.
-          kind: state.kind.concat([]), // Values of kind="" attributes.
-          kindTag: state.kindTag.concat([]), // Opened tags with kind="" attributes.
           soyState: state.soyState.concat([]),
           templates: state.templates,
           variables: state.variables,
-          scopes: state.scopes,
+          context: state.context,
           indent: state.indent, // Indentation of the following line.
           quoteKind: state.quoteKind,
           localStates: state.localStates.map(function(localState) {
@@ -35690,7 +35751,7 @@ CodeMirror.defineMIME("text/x-solr", "solr");
             } else {
               stream.skipToEnd();
             }
-            if (!state.scopes) {
+            if (!state.context || !state.context.scope) {
               var paramRe = /@param\??\s+(\S+)/g;
               var current = stream.current();
               for (var match; (match = paramRe.exec(current)); ) {
@@ -35723,7 +35784,6 @@ CodeMirror.defineMIME("text/x-solr", "solr");
           case "templ-def":
             if (match = stream.match(/^\.?([\w]+(?!\.[\w]+)*)/)) {
               state.templates = prepend(state.templates, match[1]);
-              state.scopes = prepend(state.scopes, state.variables);
               state.soyState.pop();
               return "def";
             }
@@ -35790,25 +35850,27 @@ CodeMirror.defineMIME("text/x-solr", "solr");
             return null;
 
           case "tag":
+            var endTag = state.tag[0] == "/";
+            var tagName = endTag ? state.tag.substring(1) : state.tag;
+            var tag = tags[tagName];
             if (stream.match(/^\/?}/)) {
+              var selfClosed = stream.current() == "/}";
+              if (selfClosed && !endTag) {
+                popcontext(state);
+              }
               if (state.tag == "/template" || state.tag == "/deltemplate") {
-                popscope(state);
                 state.variables = prepend(null, 'ij');
                 state.indent = 0;
               } else {
-                if (state.tag == "/for" || state.tag == "/foreach") {
-                  popscope(state);
-                }
                 state.indent -= config.indentUnit *
-                    (stream.current() == "/}" || indentingTags.indexOf(state.tag) == -1 ? 2 : 1);
+                    (selfClosed || indentingTags.indexOf(state.tag) == -1 ? 2 : 1);
               }
               state.soyState.pop();
               return "keyword";
             } else if (stream.match(/^([\w?]+)(?==)/)) {
               if (stream.current() == "kind" && (match = stream.match(/^="([^"]+)/, false))) {
                 var kind = match[1];
-                state.kind.push(kind);
-                state.kindTag.push(state.tag);
+                state.context.kind = kind;
                 var mode = modes[kind] || modes.html;
                 var localState = last(state.localStates);
                 if (localState.mode.indent) {
@@ -35857,44 +35919,49 @@ CodeMirror.defineMIME("text/x-solr", "solr");
         if (stream.match(/^\{literal}/)) {
           state.indent += config.indentUnit;
           state.soyState.push("literal");
+          state.context = new Context(state.context, "literal", state.variables);
           return "keyword";
 
         // A tag-keyword must be followed by whitespace, comment or a closing tag.
         } else if (match = stream.match(/^\{([/@\\]?\w+\??)(?=$|[\s}]|\/[/*])/)) {
-          if (match[1] != "/switch")
-            state.indent += (/^(\/|(else|elseif|ifempty|case|fallbackmsg|default)$)/.test(match[1]) && state.tag != "switch" ? 1 : 2) * config.indentUnit;
+          var prevTag = state.tag;
           state.tag = match[1];
-          if (state.tag == "/" + last(state.kindTag)) {
-            // We found the tag that opened the current kind="".
-            state.kind.pop();
-            state.kindTag.pop();
-            state.localStates.pop();
-            var localState = last(state.localStates);
-            if (localState.mode.indent) {
-              state.indent -= localState.mode.indent(localState.state, "", "");
-            }
-          }
+          var endTag = state.tag[0] == "/";
+          var indentingTag = !!tags[state.tag];
+          var tagName = endTag ? state.tag.substring(1) : state.tag;
+          var tag = tags[tagName];
+          if (state.tag != "/switch")
+            state.indent += ((endTag || tag && tag.reduceIndent) && prevTag != "switch" ? 1 : 2) * config.indentUnit;
+
           state.soyState.push("tag");
-          if (state.tag == "template" || state.tag == "deltemplate") {
-            state.soyState.push("templ-def");
-          } else if (state.tag == "call" || state.tag == "delcall") {
-            state.soyState.push("templ-ref");
-          } else if (state.tag == "let") {
-            state.soyState.push("var-def");
-          } else if (state.tag == "for" || state.tag == "foreach") {
-            state.scopes = prepend(state.scopes, state.variables);
-            state.soyState.push("var-def");
-          } else if (state.tag == "namespace") {
-            state.soyState.push("namespace-def");
-            if (!state.scopes) {
-              state.variables = prepend(null, 'ij');
+          var tagError = false;
+          if (tag) {
+            if (!endTag) {
+              if (tag.soyState) state.soyState.push(tag.soyState);
             }
-          } else if (state.tag.match(/^@(?:param\??|inject|state)/)) {
-            state.soyState.push("param-def");
-          } else if (state.tag.match(/^(?:param)/)) {
-            state.soyState.push("param-ref");
+            // If a new tag, open a new context.
+            if (!tag.noEndTag && (indentingTag || !endTag)) {
+              state.context = new Context(state.context, state.tag, tag.variableScope ? state.variables : null);
+            // Otherwise close the current context.
+            } else if (endTag) {
+              if (!state.context || state.context.tag != tagName) {
+                tagError = true;
+              } else if (state.context) {
+                if (state.context.kind) {
+                  state.localStates.pop();
+                  var localState = last(state.localStates);
+                  if (localState.mode.indent) {
+                    state.indent -= localState.mode.indent(localState.state, "", "");
+                  }
+                }
+                popcontext(state);
+              }
+            }
+          } else if (endTag) {
+            // Assume all tags with a closing tag are defined in the config.
+            tagError = true;
           }
-          return "keyword";
+          return (tagError ? "error " : "") + "keyword";
 
         // Not a tag-keyword; it's an implicit print tag.
         } else if (stream.eat('{')) {
@@ -35943,8 +36010,8 @@ CodeMirror.defineMIME("text/x-solr", "solr");
 
   CodeMirror.registerHelper("wordChars", "soy", /[\w$]/);
 
-  CodeMirror.registerHelper("hintWords", "soy", indentingTags.concat(
-      ["delpackage", "namespace", "alias", "print", "css", "debugger"]));
+  CodeMirror.registerHelper("hintWords", "soy", Object.keys(tags).concat(
+      ["css", "debugger"]));
 
   CodeMirror.defineMIME("text/x-soy", "soy");
 });
@@ -35997,7 +36064,7 @@ CodeMirror.defineMode("sparql", function(config) {
       if(ch == "?" && stream.match(/\s/, false)){
         return "operator";
       }
-      stream.match(/^[\w\d]*/);
+      stream.match(/^[A-Za-z0-9_\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD][A-Za-z0-9_\u00B7\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u037D\u037F-\u1FFF\u200C-\u200D\u203F-\u2040\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD]*/);
       return "variable-2";
     }
     else if (ch == "<" && !stream.match(/^[\s\u00a0=]/, false)) {

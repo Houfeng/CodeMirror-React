@@ -59,7 +59,7 @@ export class CodeMirror extends React.Component<ICodeMirrorPorps> {
   componentDidUpdate() {
     const { value } = this.props;
     if (value === this.value) return;
-    this.editor.setValue(value);
+    this.editor.setValue(value || "");
   }
 
   private bindEvents = () => {
